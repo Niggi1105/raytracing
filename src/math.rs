@@ -1,29 +1,29 @@
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
-#[derive(Clone, Copy)]
-struct Vector3 {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Vector3 {
     x: f32,
     y: f32,
     z: f32,
 }
 
-#[derive(Clone, Copy)]
-struct Point {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Point {
     x: f32,
     y: f32,
     z: f32,
 }
 
-#[derive(Clone, Copy)]
-struct Plane {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Plane {
     normal: Vector3,
     a: f32,
 }
 
-#[derive(Clone, Copy)]
-struct Line {
-    location: Point,
-    direction: Vector3,
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Line {
+    pub location: Point,
+    pub direction: Vector3,
 }
 
 impl Add for Vector3 {
@@ -83,12 +83,24 @@ impl Vector3 {
         self.z *= factor;
     }
 
+    pub fn stretched(&self, factor: f32) -> Self {
+        Self { 
+            x: self.x * factor,
+            y: self.y * factor,
+            z: self.z * factor,
+        }
+    }
+
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
-    pub fn normalize(&mut self) {
+    pub fn make_unitvector(&mut self) {
         self.stretch(1.0 / self.length())
+    }
+
+    pub fn get_unitvector(&self) -> Self {
+        self.stretched(1.0/self.length())
     }
 
     pub fn dot_product(&self, other: &Self) -> f32 {
@@ -126,12 +138,8 @@ impl Point {
     }
 
     pub fn distance_to_plane(&self, plane: Plane) -> f32 {
-        let mut n = plane.normal;
-        n.normalize();
-        let op = plane.get_point_on_plane().local_vector();
-        let or = self.local_vector();
-
-        n.dot_product(&(or - op)).abs()
+        //Hessesche Normalform
+        ((self.local_vector().dot_product(&plane.normal) - plane.a) / plane.normal.length()).abs()
     }
 }
 
@@ -143,9 +151,53 @@ impl Line {
         }
     }
 
-    pub fn form_points(p: Point, s: Point) -> Self{
+    pub fn form_points(p: Point, s: Point) -> Self {
         let dir = Vector3::ab_from_points(&p, &s);
-        Self { location: p, direction: dir }
+        Self {
+            location: p,
+            direction: dir,
+        }
+    }
+
+    ///returns None if the plane and the line are parralel (doesnt check for identical)
+    pub fn intersection_point_with_plane(&self, plane: &Plane) -> Option<Point> {
+        if plane.normal.dot_product(&self.direction) == 0.0 {
+            return None;
+        };
+        let n = plane.normal;
+        let d = self.direction;
+        let l = self.location.local_vector();
+
+        //some complicated math...
+        let s = (plane.a - n.dot_product(&l)) / n.dot_product(&d);
+
+        Some(Point::new(l.x + s * d.x, l.y + s * d.y, l.z + s * d.z))
+    }
+
+    pub fn minimum_distance_to_other(&self, other: Self) -> f32 {
+        //can construct two parralel planes form lines and calculate their distance
+        let n = self.direction.cross_product(&other.direction);
+        let p = Plane::from_normal_and_point(n, &self.location);
+        other.location.distance_to_plane(p)
+    }
+
+    ///uses the direction vector as is to find the point
+    pub fn get_point_for_s(&self, s: f32) -> Point {
+        Point::new(
+            self.location.x + s * self.direction.x, 
+            self.location.y + s * self.direction.y, 
+            self.location.z + s * self.direction.z, 
+        )
+    }
+
+    ///uses the unit vector of the direction to find the point
+    pub fn get_point_for_s_unitv(&self, s: f32) -> Point {
+        let dir = self.direction.get_unitvector();
+        Point::new(
+            self.location.x + s * dir.x, 
+            self.location.y + s * dir.y, 
+            self.location.z + s * dir.z, 
+        )
     }
 
 }
@@ -158,7 +210,7 @@ impl Plane {
     pub fn from_normal_and_point(normal: Vector3, point: &Point) -> Self {
         Self {
             normal,
-            a: normal.x * point.x + normal.y * point.y + normal.z * point.z,
+            a: normal.dot_product(&point.local_vector()),
         }
     }
 
@@ -184,5 +236,52 @@ impl Plane {
 
     pub fn angle_to_vec(&self, vector: &Vector3) -> f32 {
         (self.normal.dot_product(vector) / (self.normal.length() * vector.length())).sinh()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_intersection_point() {
+        let location = Point::new(1.0, 1.0, 2.0);
+        let l = Line::new(location, Vector3::new(1.0, 2.0, -1.0));
+        let p = Plane::from_points(
+            &location,
+            &Point::new(0.5, -2.0, 1.4),
+            &Point::new(-1.0, -6.0, 0.0),
+        );
+
+        assert_eq!(l.intersection_point_with_plane(&p).unwrap(), location);
+    }
+
+    #[test]
+    fn test_intersection_point_ouch() {
+        let location = Point::new(1.0, 1.0, 2.0);
+        let l = Line::new(location, Vector3::new(1.0, 2.0, -1.0));
+        let p = Plane::from_points(
+            &Point::new(1.5, -2.2, 1.3),
+            &Point::new(0.5, -2.0, 1.4),
+            &Point::new(-1.0, -6.0, 0.0),
+        );
+
+        let result = Point {
+            x: 0.72390115,
+            y: 0.44780225,
+            z: 2.276099,
+        };
+        assert_eq!(l.intersection_point_with_plane(&p).unwrap(), result);
+    }
+
+    #[test]
+    fn test_intersection_point_parralel() {
+        let direction = Vector3::new(1.0, 1.0, 2.0);
+        let l = Line::new(Point::new(1.0, 2.0, -1.0), direction);
+
+        let crossp = direction.cross_product(&Vector3::new(0.0, 0.0, 1.0));
+        let p = Plane::from_normal_and_point(crossp, &Point::new(5.0, 5.0, 5.0));
+
+        assert!(l.intersection_point_with_plane(&p).is_none());
     }
 }
