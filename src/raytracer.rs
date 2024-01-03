@@ -1,9 +1,7 @@
-use crate::math::{self, Point};
-use crate::math::Vector3;
-use crate::shapes;
+use crate::math::vec::Vector3;
+use crate::math::point::Point;
 use crate::shapes::Sphere;
 
-use image;
 use image::Rgb;
 
 #[derive(Debug, Clone)]
@@ -44,9 +42,6 @@ impl Raytracer{
         Self { scene, image_size, output_name }
     }
 
-    pub fn color_pixel(&self, x: u32, y: u32) -> Rgb<u8> {
-        Vector3::ab_from_points(&self.scene.camera.pos, )        
-    }
 
 
 }

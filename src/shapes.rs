@@ -1,6 +1,7 @@
-use std::cmp::min;
+use crate::math::ray::Ray;
+use crate::math::point::Point;
+use crate::math::plane::Plane;
 
-use crate::math::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sphere {
@@ -13,7 +14,7 @@ impl Sphere {
         Self { center, radius }
     }
 
-    pub fn does_intersect(&self, line: Line) -> bool {
+    pub fn does_intersect(&self, line: Ray) -> bool {
         //plane is orthogonal to ray
         let p = Plane::from_normal_and_point(line.direction, &self.center);
 
@@ -29,7 +30,7 @@ impl Sphere {
 
     ///returns None if the Sphere does not intersect with the point else the point is returned.
     ///the Point may be in opposite direction to the direction vector
-    pub fn get_first_intersect_point(&self, line: &Line) -> Option<Point> {
+    pub fn get_first_intersect_point(&self, line: &Ray) -> Option<Point> {
         let u = line.direction.get_unitvector();
         let o = line.location.local_vector();
 
@@ -61,6 +62,7 @@ impl Sphere {
 #[cfg(test)]
 mod test{
     use super::*; 
+    use crate::math::vec::Vector3;
 
     #[test]
     fn test_get_first_intersect1(){
@@ -70,7 +72,7 @@ mod test{
         let location = Point::new(0.0, 0.0, 0.0);
         let direction = Vector3::new(3.0, 0.0, 0.0);
 
-        let line = Line::new(location, direction);
+        let line = Ray::new(location, direction);
 
         let intersect = sphere.get_first_intersect_point(&line).unwrap();
         assert_eq!(intersect, Point::new(1.0, 0.0, 0.0))
@@ -84,7 +86,7 @@ mod test{
         let location = Point::new(0.0, 0.0, 0.0);
         let direction = Vector3::new(3.0, 0.0, 0.0);
 
-        let line = Line::new(location, direction);
+        let line = Ray::new(location, direction);
 
         let intersect = sphere.get_first_intersect_point(&line).unwrap();
         assert_eq!(intersect, Point::new(-1.0, 0.0, 0.0))
@@ -98,7 +100,7 @@ mod test{
         let location = Point::new(0.0, 1.0, 0.0);
         let direction = Vector3::new(2.0, 0.0, 0.0);
 
-        let line = Line::new(location, direction);
+        let line = Ray::new(location, direction);
 
         let intersect = sphere.get_first_intersect_point(&line).unwrap();
         assert_eq!(intersect, Point::new(2.0, 1.0, 0.0))
@@ -112,7 +114,7 @@ mod test{
         let location = Point::new(0.0, 0.0, 0.0);
         let direction = Vector3::new(2.0, 1.0, 0.0);
 
-        let line = Line::new(location, direction);
+        let line = Ray::new(location, direction);
 
         let intersect = sphere.get_first_intersect_point(&line).unwrap();
         assert_eq!(intersect, Point::new(1.2000002, 0.6000001, 0.0))
